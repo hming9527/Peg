@@ -2,12 +2,14 @@ import java.io.*;
 import java.util.*;
 
 /**
- * Created by hming on 3/18/18.
+ * Backend part of the peg solver.
+ * The backend takes as input the the output of the DPLL program, and generates the path represented by the output.
  */
 public class BackEnd {
 
     private Map<String, Boolean> values = new HashMap<>();
     private Map<String, String> symbolTable = new HashMap<>();
+    private int expectedNumSteps = -1;
 
     public BackEnd() {
 
@@ -21,7 +23,10 @@ public class BackEnd {
         String line = "";
         int lineIdx = 0;
         boolean isValue = true;
+        boolean numStepsConfirmed = false;
         while ((line = br.readLine()) != null) {
+            // If the input indicates suggests that the peg game has no solution,
+            // the backend writes "NO SOLUTION" to the output and return.
             if (lineIdx == 0 && line.equals("0")) {
                 bw.write("NO SOLUTION");
                 bw.close();
@@ -31,12 +36,22 @@ public class BackEnd {
                     isValue = false;
                     lineIdx++;
                 } else {
+                    // Construct value map and symbol table.
                     String[] arr = line.split("\\s");
                     if (arr.length < 2) continue;
                     if (isValue) {
                         values.put(arr[0], arr[1].equals("T") ? true : false);
                     } else {
                         symbolTable.put(arr[0], arr[1]);
+                        if (!numStepsConfirmed && arr[1].startsWith("P")) {
+                            String[] states = arr[1].split(",");
+                            int timepoint = Integer.parseInt(states[states.length - 1].substring(0, states[states.length - 1].length() - 1));
+                            if (timepoint - 1 > expectedNumSteps) {
+                                expectedNumSteps = timepoint - 1;
+                            } else {
+                                numStepsConfirmed = true;
+                            }
+                        }
                     }
                     lineIdx++;
                 }
@@ -44,6 +59,7 @@ public class BackEnd {
         }
         br.close();
         List<String> path = new ArrayList<>();
+        // Add selected jump actions to the path.
         for (String k : values.keySet()) {
             if (values.get(k) && symbolTable.get(k).startsWith("J")) {
                 path.add(symbolTable.get(k));
@@ -61,7 +77,14 @@ public class BackEnd {
                 return Integer.parseInt(time1) - Integer.parseInt(time2);
             }
         };
+        // Sort the path by the timepoint of each jump.
         Collections.sort(path, myComparator);
+        // Write the path to the output.
+        // If the path generated can not be a real path, write "NO SOLUTION" and return.
+        if (path.size() == 0 || path.size() != expectedNumSteps) {
+            bw.write("NO SOLUTION");
+            return;
+        }
         for (String s : path) {
             bw.write(s);
             bw.newLine();
